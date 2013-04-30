@@ -1,3 +1,6 @@
+# Make code still work under Python 2.6/2.7
+from __future__ import print_function
+
 from gi.repository import GObject
 from gi.repository import Peas
 from gi.repository import PeasGtk
@@ -35,7 +38,7 @@ class MediaPlayerPlugin(GObject.Object, Liferea.MediaPlayerActivatable):
         elif t == Gst.Message.ERROR:
                 self.player.set_state(Gst.State.NULL)
                 err, debug = message.parse_error()
-                print "Error: %s" % err, debug
+                print("Error: %s" % err, debug)
                 self.playing = False
 
         self.updateButtons()
@@ -106,7 +109,7 @@ class MediaPlayerPlugin(GObject.Object, Liferea.MediaPlayerActivatable):
         
         except Exception as e:
                 # pipeline must not be ready and does not know position
-                print e
+                print(e)
                 pass
 
         return True
@@ -122,7 +125,7 @@ class MediaPlayerPlugin(GObject.Object, Liferea.MediaPlayerActivatable):
 
     def do_load(self, parentWidget, enclosures):
         if parentWidget == None:
-           print "ERROR: Could not find media player insertion widget!"
+           print("ERROR: Could not find media player insertion widget!")
 
         # Test whether Media Player widget already exists
         childList = Gtk.Container.get_children(parentWidget)
@@ -177,7 +180,7 @@ class MediaPlayerPlugin(GObject.Object, Liferea.MediaPlayerActivatable):
         self.on_finished(self.player)
 
     #def do_activate(self):
-        #print "=== MediaPlayer activate"
+        #print("=== MediaPlayer activate")
 
     def do_deactivate(self):
         window = self.object

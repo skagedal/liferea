@@ -1,3 +1,6 @@
+# Make code still work under Python 2.6/2.7
+from __future__ import print_function
+
 from gi.repository import GObject
 from gi.repository import Peas
 from gi.repository import PeasGtk
@@ -15,19 +18,19 @@ class GnomeKeyringPlugin(GObject.Object, Liferea.AuthActivatable):
         #
         # Dump all passwords for debugging:
         #
-        #print "=== dump list on activate"
+        #print("=== dump list on activate")
         #(result, ids) = GnomeKeyring.list_item_ids_sync("liferea")
         #for id in ids: 
         #   (result, item) = GnomeKeyring.item_get_info_sync("liferea", id)
         #   if result != GnomeKeyring.Result.OK:
-        #      print '%s is locked!' % (id)
+        #      print('%s is locked!' % (id))
         #   else:
-        #         print '%s = %s' % (item.get_display_name(), item.get_secret())
+        #         print('%s = %s' % (item.get_display_name(), item.get_secret()))
         #         self.attrs = GnomeKeyring.Attribute.list_new()
         #         result = GnomeKeyring.item_get_attributes_sync("liferea", id, self.attrs)
         #         for attr in GnomeKeyring.Attribute.list_to_glist(self.attrs):
-        #            print '    %s => %s ' % (attr.name, attr.get_string())
-        #print "=== dump list end"
+        #            print('    %s => %s ' % (attr.name, attr.get_string()))
+        #print("=== dump list end")
 
     def do_deactivate(self):
         window = self.object
@@ -40,8 +43,8 @@ class GnomeKeyringPlugin(GObject.Object, Liferea.AuthActivatable):
         if result != GnomeKeyring.Result.OK:
             return
 
-        #print 'password %s = %s' % (id, value[0].secret)
-        #print 'password id = %s' % value[0].item_id
+        #print('password %s = %s' % (id, value[0].secret))
+        #print('password id = %s' % value[0].item_id)
 
         username, password = value[0].secret.split('@@@')
         Liferea.auth_info_from_store(id, username, password)
