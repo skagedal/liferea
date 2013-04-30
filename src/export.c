@@ -25,12 +25,15 @@
 
 #include <libxml/tree.h>
 
+#include "auth.h"
 #include "common.h"
+#include "db.h"
 #include "debug.h"
 #include "favicon.h"
 #include "feedlist.h"
 #include "folder.h"
 #include "xml.h"
+#include "ui/ui_common.h"
 #include "ui/ui_node.h"
 
 struct exportData {
@@ -77,6 +80,9 @@ export_append_node_tag (nodePtr node, gpointer userdata)
 				break;
 			case NODE_VIEW_SORT_BY_STATE:
 				xmlNewProp (childNode, BAD_CAST"sortColumn", BAD_CAST"state");
+				break;
+			default:
+				g_assert_not_reached();
 				break;
 		}
 

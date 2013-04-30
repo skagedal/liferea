@@ -34,16 +34,11 @@
 #include "node.h"
 #include "subscription.h"
 #include "update.h"
-#include "ui/auth_dialog.h"
 #include "ui/liferea_dialog.h"
-#include "ui/ui_common.h"
 #include "fl_sources/node_source.h"
 #include "fl_sources/opml_source.h"
 
 // FIXME: Avoid doing requests when we are not logged in yet!
-
-/** default tt-rss subscription list update interval = once a day */
-#define TTRSS_SOURCE_UPDATE_INTERVAL 60*60*24
 
 /** create a tt-rss source with given node as root */ 
 static ttrssSourcePtr
@@ -148,7 +143,7 @@ ttrss_source_login_cb (const struct updateResult * const result, gpointer userda
 		gchar *source_uri;
 
 		/* Check for remote update daemon running. This needs to be known
-		   before we start updating to decide wether to actively update
+		   before we start updating to decide whether to actively update
 		   remote feeds or just fetch them. */
 		request = update_request_new ();
 		request->options = update_options_copy (subscription->updateOptions);

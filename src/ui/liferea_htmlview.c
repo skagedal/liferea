@@ -43,7 +43,6 @@
 #include "ui/browser_tabs.h"
 #include "ui/liferea_shell.h"
 #include "ui/item_list_view.h"
-#include "ui/ui_common.h"
 
 /* The LifereaHtmlView is a complex widget used to present both internally
    rendered content as well as serving as a browser widget. It automatically
@@ -339,7 +338,7 @@ liferea_htmlview_clear (LifereaHtmlView *htmlview)
 	g_string_free (buffer, TRUE);
 }
 
-gboolean
+static gboolean
 liferea_htmlview_is_special_url (const gchar *url)
 {
 	/* match against all special protocols, simple

@@ -68,7 +68,7 @@ enum is_columns {
 	IS_PARENT,		/**< Parent node pointer */
 	IS_FAVICON,		/**< Pixbuf reference to the item's feed's icon */
 	IS_ENCICON,		/**< Pixbuf reference to the item's enclosure icon */
-	IS_ENCLOSURE,		/**< Flag wether enclosure is attached or not */
+	IS_ENCLOSURE,		/**< Flag whether enclosure is attached or not */
 	IS_SOURCE,		/**< Source node pointer */
 	IS_STATE,		/**< Original item state (unread, flagged...) for sorting */
 	ITEMSTORE_UNREAD,	/**< Flag whether "unread" icon is to be shown */
@@ -409,7 +409,7 @@ static gboolean
 on_item_list_view_key_press_event (GtkWidget *widget, GdkEventKey *event, gpointer data) 
 {
 	if ((event->type == GDK_KEY_PRESS) && (event->state == 0)
-	    && (event->keyval == GDK_KEY(Delete)))
+	    && (event->keyval == GDK_KEY_Delete))
 		on_remove_item_activate(NULL, NULL);
 
 	return FALSE;
@@ -522,6 +522,9 @@ on_item_list_view_button_press_event (GtkWidget *treeview, GdkEventButton *event
 				ui_popup_item_menu (item, eb->button, eb->time);
 				result = TRUE;
 				break;
+			default:
+				/* Do nothing on buttons >= 4 */
+				break;
 		}
 		item_unload (item);
 	}
@@ -565,7 +568,6 @@ item_list_view_create (GtkWidget *window)
 	ItemListView		*ilv;
 	GtkCellRenderer		*renderer;
 	GtkTreeViewColumn 	*column, *headline_column;
-	GtkTreeSelection	*select;
 	GtkWidget 		*ilscrolledwindow;
 
 	ilv = g_object_new (ITEM_LIST_VIEW_TYPE, NULL);
