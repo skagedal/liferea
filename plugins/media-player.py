@@ -48,7 +48,7 @@ class MediaPlayerPlugin(GObject.Object, Liferea.MediaPlayerActivatable):
     def on_finished(self, player):
         self.playing = False
         self.slider.set_value(0)
-        self.label.set_text("0:00")
+        self.set_label(0)
         self.updateButtons()
 
     def play(self):
@@ -63,7 +63,7 @@ class MediaPlayerPlugin(GObject.Object, Liferea.MediaPlayerActivatable):
         
     def playToggled(self, w):
         self.slider.set_value(0)
-        self.label.set_text("0:00")
+        self.set_label(0)
 
         if(self.playing == False):
                 self.play()
@@ -85,6 +85,9 @@ class MediaPlayerPlugin(GObject.Object, Liferea.MediaPlayerActivatable):
         self.play()
         self.updateButtons()       
 
+    def set_label(self, position):
+        self.label.set_text ("%d:%02d" % (position / 60, position % 60))
+
     def updateSlider(self):
         if(self.playing == False):
            return False # cancel timeout
@@ -104,7 +107,7 @@ class MediaPlayerPlugin(GObject.Object, Liferea.MediaPlayerActivatable):
            position = float(nanosecs) / Gst.SECOND
            self.slider.set_range(0, duration)
            self.slider.set_value(position)
-           self.label.set_text ("%d" % (position / 60) + ":%02d" % (position % 60))
+           self.set_label(position)
 
            self.slider.handler_unblock_by_func(self.on_slider_change)
         
@@ -125,11 +128,14 @@ class MediaPlayerPlugin(GObject.Object, Liferea.MediaPlayerActivatable):
            self.playButtonImage.set_from_stock("gtk-media-stop", Gtk.IconSize.BUTTON)
 
     def on_slider_change(self, widget):
-        nanosecs = widget.get_value() * Gst.SECOND
+        position = widget.get_value()
+        nanosecs = position * Gst.SECOND
         self.player.seek_simple(Gst.Format.TIME,
                                 Gst.SeekFlags.FLUSH | 
                                 Gst.SeekFlags.KEY_UNIT,
                                 nanosecs)
+        # Do this directly to avoid delay
+        self.set_label(position) 
 
     def do_load(self, parentWidget, enclosures):
         if parentWidget == None:
@@ -176,7 +182,8 @@ class MediaPlayerPlugin(GObject.Object, Liferea.MediaPlayerActivatable):
 
            Gtk.Box.pack_start(vbox, self.slider, True, True, 0)
 
-           self.label = Gtk.Label(label='0:00')
+           self.label = Gtk.Label()
+           self.set_label(0)
            self.label.set_margin_left(6)
            self.label.set_margin_right(6)
            Gtk.Box.pack_start(vbox, self.label, False, False, 0)
