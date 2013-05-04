@@ -22,7 +22,9 @@ class MediaPlayerPlugin(GObject.Object, Liferea.MediaPlayerActivatable):
     def __init__(self):
         Gst.init_check(None)
         self.IS_GST010 = Gst.version()[0] == 0
-        self.player = Gst.ElementFactory.make("playbin2", "player")
+
+        playbin = "playbin2" if self.IS_GST010 else "playbin"
+        self.player = Gst.ElementFactory.make(playbin, "player")
         fakesink = Gst.ElementFactory.make("fakesink", "fakesink")
         self.player.set_property("video-sink", fakesink)
         bus = self.player.get_bus()
