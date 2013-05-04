@@ -33,6 +33,8 @@ class MediaPlayerPlugin(GObject.Object, Liferea.MediaPlayerActivatable):
         bus.connect("message::error", self.on_error)
         self.player.connect("about-to-finish",  self.on_finished)
 
+        self.moving_slider = False
+
     def on_error(self, bus, message):
         self.player.set_state(Gst.State.NULL)
         err, debug = message.parse_error()
@@ -89,7 +91,7 @@ class MediaPlayerPlugin(GObject.Object, Liferea.MediaPlayerActivatable):
         self.label.set_text ("%d:%02d" % (position / 60, position % 60))
 
     def updateSlider(self):
-        if(self.playing == False):
+        if not self.playing or self.moving_slider:
            return False # cancel timeout
 
         try:
@@ -123,14 +125,22 @@ class MediaPlayerPlugin(GObject.Object, Liferea.MediaPlayerActivatable):
            self.playButtonImage.set_from_stock("gtk-media-stop", Gtk.IconSize.BUTTON)
 
     def on_slider_change_value(self, widget, scroll, value):
-        nanosecs = value * Gst.SECOND
-        self.player.seek_simple(Gst.Format.TIME,
-                                Gst.SeekFlags.FLUSH | 
-                                Gst.SeekFlags.KEY_UNIT,
-                                nanosecs)
-        # Do this directly to avoid delay
-        self.set_label(value) 
+        if not self.moving_slider:
+            nanosecs = value * Gst.SECOND
+            self.player.seek_simple(Gst.Format.TIME,
+                                    Gst.SeekFlags.FLUSH | 
+                                    Gst.SeekFlags.KEY_UNIT,
+                                    nanosecs)
+            # Do this directly to avoid delay
+            self.set_label(value) 
+
         return False
+
+    def on_slider_button_press(self, widget, event):
+        self.moving_slider = True
+
+    def on_slider_button_release(self, widget, event):
+        self.moving_slider = False
 
     def do_load(self, parentWidget, enclosures):
         if parentWidget == None:
@@ -174,6 +184,10 @@ class MediaPlayerPlugin(GObject.Object, Liferea.MediaPlayerActivatable):
            self.slider.set_range(0, 100)
            self.slider.set_increments(1, 10)
            self.slider.connect("change-value", self.on_slider_change_value)
+           self.slider.connect("button-press-event",
+                               self.on_slider_button_press)
+           self.slider.connect("button-release-event", 
+                               self.on_slider_button_release)
 
            Gtk.Box.pack_start(vbox, self.slider, True, True, 0)
 
