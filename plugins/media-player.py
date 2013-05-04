@@ -28,21 +28,21 @@ class MediaPlayerPlugin(GObject.Object, Liferea.MediaPlayerActivatable):
         fakesink = Gst.ElementFactory.make("fakesink", "fakesink")
         self.player.set_property("video-sink", fakesink)
         bus = self.player.get_bus()
-        bus.add_signal_watch_full()
-        bus.connect("message", self.on_message)
+        bus.add_signal_watch()
+        bus.connect("message::eos", self.on_eos)
+        bus.connect("message::error", self.on_error)
         self.player.connect("about-to-finish",  self.on_finished)
 
-    def on_message(self, bus, message):
-        t = message.type
-        if t == Gst.Message.EOS:
-                self.player.set_state(Gst.State.NULL)
-                self.playing = False
-        elif t == Gst.Message.ERROR:
-                self.player.set_state(Gst.State.NULL)
-                err, debug = message.parse_error()
-                print("Error: %s" % err, debug)
-                self.playing = False
+    def on_error(self, bus, message):
+        self.player.set_state(Gst.State.NULL)
+        err, debug = message.parse_error()
+        print("Error: %s" % err, debug)
+        self.playing = False
+        self.updateButtons()
 
+    def on_eos(self, bus, message):
+        self.player.set_state(Gst.State.NULL)
+        self.playing = False
         self.updateButtons()
 
     def on_finished(self, player):
