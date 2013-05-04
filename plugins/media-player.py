@@ -97,9 +97,8 @@ class MediaPlayerPlugin(GObject.Object, Liferea.MediaPlayerActivatable):
               nanosecs = self.player.query_position(Gst.Format.TIME)[1]
               duration_nanosecs = self.player.query_duration(Gst.Format.TIME)[1]
 
-           # FIXME!
            # block seek handler so we don't seek when we set_value()
-           # self.slider.handler_block_by_func(self.on_slider_change)
+           self.slider.handler_block_by_func(self.on_slider_change)
 
            duration = float(duration_nanosecs) / Gst.SECOND
            position = float(nanosecs) / Gst.SECOND
@@ -107,7 +106,7 @@ class MediaPlayerPlugin(GObject.Object, Liferea.MediaPlayerActivatable):
            self.slider.set_value(position)
            self.label.set_text ("%d" % (position / 60) + ":%02d" % (position % 60))
 
-           #self.slider.handler_unblock_by_func(self.on_slider_change)
+           self.slider.handler_unblock_by_func(self.on_slider_change)
         
         except Exception as e:
                 # pipeline must not be ready and does not know position
@@ -124,6 +123,13 @@ class MediaPlayerPlugin(GObject.Object, Liferea.MediaPlayerActivatable):
            self.playButtonImage.set_from_stock("gtk-media-play", Gtk.IconSize.BUTTON)
         else:
            self.playButtonImage.set_from_stock("gtk-media-stop", Gtk.IconSize.BUTTON)
+
+    def on_slider_change(self, widget):
+        nanosecs = widget.get_value() * Gst.SECOND
+        self.player.seek_simple(Gst.Format.TIME,
+                                Gst.SeekFlags.FLUSH | 
+                                Gst.SeekFlags.KEY_UNIT,
+                                nanosecs)
 
     def do_load(self, parentWidget, enclosures):
         if parentWidget == None:
@@ -166,6 +172,7 @@ class MediaPlayerPlugin(GObject.Object, Liferea.MediaPlayerActivatable):
            self.slider.set_draw_value(False)
            self.slider.set_range(0, 100)
            self.slider.set_increments(1, 10)
+           self.slider.connect("value-changed", self.on_slider_change)
 
            Gtk.Box.pack_start(vbox, self.slider, True, True, 0)
 
