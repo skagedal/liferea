@@ -88,7 +88,10 @@ class MediaPlayerPlugin(GObject.Object, Liferea.MediaPlayerActivatable):
         self.updateButtons()       
 
     def set_label(self, position):
-        self.label.set_text ("%d:%02d" % (position / 60, position % 60))
+        format = "%d:%02d"
+        if self.moving_slider:
+            format = "<i>%s</i>" % format
+        self.label.set_markup (format % (position / 60, position % 60))
 
     def updateSlider(self):
         if not self.playing or self.moving_slider:
@@ -131,8 +134,8 @@ class MediaPlayerPlugin(GObject.Object, Liferea.MediaPlayerActivatable):
                                     Gst.SeekFlags.FLUSH | 
                                     Gst.SeekFlags.KEY_UNIT,
                                     nanosecs)
-            # Do this directly to avoid delay
-            self.set_label(value) 
+
+        self.set_label(value) 
 
         return False
 
