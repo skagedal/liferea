@@ -1,5 +1,5 @@
 # Make code still work under Python 2.6/2.7
-from __future__ import print_function
+from __future__ import print_function, division
 
 from gi.repository import GObject
 from gi.repository import Peas
@@ -93,28 +93,39 @@ class MediaPlayerPlugin(GObject.Object, Liferea.MediaPlayerActivatable):
             format = "<i>%s</i>" % format
         self.label.set_markup (format % (position / 60, position % 60))
 
-    def updateSlider(self):
-        if not self.playing or self.moving_slider:
-           return False # cancel timeout
-
+    def get_player_position(self):
+        """Get the GStreamer player's position in nanoseconds"""
         try:
            if self.IS_GST010:
-              nanosecs = self.player.query_position(Gst.Format.TIME)[2]
-              duration_nanosecs = self.player.query_duration(Gst.Format.TIME)[2]
+              return self.player.query_position(Gst.Format.TIME)[2]
            else:
-              nanosecs = self.player.query_position(Gst.Format.TIME)[1]
-              duration_nanosecs = self.player.query_duration(Gst.Format.TIME)[1]
-
-           duration = float(duration_nanosecs) / Gst.SECOND
-           position = float(nanosecs) / Gst.SECOND
-           self.slider.set_range(0, duration)
-           self.slider.set_value(position)
-           self.set_label(position)
-
+              return self.player.query_position(Gst.Format.TIME)[1]
         except Exception as e:
-                # pipeline must not be ready and does not know position
-                print(e)
-                pass
+            # pipeline must not be ready and does not know position
+            print(e)
+            return 0
+
+    def get_player_duration(self):
+        """Get the GStreamer player's duration in nanoseconds"""
+        try:
+            if self.IS_GST010:
+                return self.player.query_duration(Gst.Format.TIME)[2]
+            else:
+                return self.player.query_duration(Gst.Format.TIME)[1]
+        except Exception as e:
+            # pipeline must not be ready and does not know position
+            print(e)
+            return 0
+
+    def updateSlider(self):
+        if not self.playing or self.moving_slider:
+            return False # cancel timeout
+
+        duration = self.get_player_duration() / Gst.SECOND
+        position = self.get_player_position() / Gst.SECOND
+        self.slider.set_range(0, duration)
+        self.slider.set_value(position)
+        self.set_label(position)
 
         return True
 
@@ -128,14 +139,18 @@ class MediaPlayerPlugin(GObject.Object, Liferea.MediaPlayerActivatable):
            self.playButtonImage.set_from_stock("gtk-media-stop", Gtk.IconSize.BUTTON)
 
     def on_slider_change_value(self, widget, scroll, value):
+        self.set_label(value) 
         if not self.moving_slider:
             nanosecs = value * Gst.SECOND
-            self.player.seek_simple(Gst.Format.TIME,
-                                    Gst.SeekFlags.FLUSH | 
-                                    Gst.SeekFlags.KEY_UNIT,
-                                    nanosecs)
-
-        self.set_label(value) 
+            # Stop when moving slider to very near the end
+            end_cutoff = self.get_player_duration() - Gst.SECOND
+            if nanosecs > end_cutoff and self.playing:
+                self.playToggled(None)
+            else:
+                self.player.seek_simple(Gst.Format.TIME,
+                                        Gst.SeekFlags.FLUSH | 
+                                        Gst.SeekFlags.KEY_UNIT,
+                                        nanosecs)
 
         return False
 
