@@ -38,6 +38,9 @@
 #include "fl_sources/node_source.h"
 #include "fl_sources/opml_source.h"
 
+/** default subscription list update interval = once a day */
+#define TTRSS_SOURCE_UPDATE_INTERVAL 60*60*24
+
 // FIXME: Avoid doing requests when we are not logged in yet!
 
 /** create a tt-rss source with given node as root */ 
@@ -208,12 +211,14 @@ ttrss_source_auto_update (nodePtr node)
 	GTimeVal	now;
 	ttrssSourcePtr	source = (ttrssSourcePtr) node->data;
 
+	debug0(DEBUG_UPDATE, "ttrss_source_auto_update: checking if update is needed");
 	if (source->loginState == TTRSS_SOURCE_STATE_IN_PROGRESS) 
 		return; /* the update will start automatically anyway */
 
 	g_get_current_time (&now);
 
-	ttrss_source_update (node);
+	if (node->subscription->updateState->lastPoll.tv_sec + TTRSS_SOURCE_UPDATE_INTERVAL <= now.tv_sec)
+		ttrss_source_update (node);
 }
 
 static void
@@ -237,6 +242,8 @@ ttrss_source_import (nodePtr node)
 
 	for (iter = node->children; iter; iter = g_slist_next(iter))
 		((nodePtr) iter->data)->subscription->type = &ttrssSourceFeedSubscriptionType;
+
+	subscription_set_update_interval (node->subscription, TTRSS_SOURCE_UPDATE_INTERVAL);
 }
 
 static void
