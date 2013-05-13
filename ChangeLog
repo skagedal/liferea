@@ -1,3 +1,11 @@
+	To be released
+
+	* Merged SF #219: View *.xml files along with *.opml files in file chooser 
+	  (patch by Simon Kågedal Reimer)
+	* Merged SF #233: Show feed name in item view when in merged views. 
+	  (patch by Simon Kågedal Reimer)
+
+
 2013-05-12   Lars Windolf <lars.lindner@gmail.com>
 
 	Version 1.10-RC
