@@ -94,7 +94,7 @@ ttrss_subscription_cb (subscriptionPtr subscription, const struct updateResult *
 		if (json_parser_load_from_data (parser, result->data, -1, NULL)) {
 			JsonArray	*array = json_node_get_array (json_get_node (json_parser_get_root (parser), "content"));
 			GList		*iter, *elements;
-			GSList		*siter;
+			GSList		*siter, *nodes_to_remove;
 		
 			/* We expect something like this:
 			
@@ -134,6 +134,7 @@ ttrss_subscription_cb (subscriptionPtr subscription, const struct updateResult *
 
 			/* Remove old nodes we cannot find anymore */
 			siter = source->root->children;
+			nodes_to_remove = NULL;
 			while (siter) {
 				nodePtr node = (nodePtr)siter->data;
 				gboolean found = FALSE;
@@ -151,11 +152,13 @@ ttrss_subscription_cb (subscriptionPtr subscription, const struct updateResult *
 				g_list_free (elements);
 
 				if (!found)			
-					feedlist_node_removed (node);
-				
+					nodes_to_remove = g_slist_prepend (nodes_to_remove, node);
 				siter = g_slist_next (siter);
 			}
 			
+			g_slist_foreach (nodes_to_remove, (GFunc)feedlist_node_removed, NULL);
+			g_slist_free (nodes_to_remove);
+
 			opml_source_export (subscription->node);	/* save new feeds to feed list */				   
 			subscription->node->available = TRUE;			
 			//return;
