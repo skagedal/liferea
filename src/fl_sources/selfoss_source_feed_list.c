@@ -41,103 +41,109 @@ static void
 selfoss_subscription_cb (subscriptionPtr subscription, const struct updateResult * const result, updateFlags flags)
 {
 	selfossSourcePtr source = (selfossSourcePtr) subscription->node->data;
+	GError		*err = NULL;
+	JsonParser	*parser = NULL;
+	JsonNode	*root = NULL;
+	JsonArray	*array;
+	GList		*iter, *elements;
+	GSList		*siter;
 
 	debug1 (DEBUG_UPDATE,"selfoss_subscription_cb(): %s", result->data);
+
+	/* FIXME: All errors reported by "g_warning" below should also somehow get reported
+	 * through the UI. */
 	
-	if (result->data && result->httpstatus == 200) {
-		JsonParser	*parser = json_parser_new ();
+	if (result->data == NULL || result->httpstatus != 200) {
+		g_warning ("selfoss_subscription_cb(): Failed to get subscription list\n");
+		subscription->node->available = FALSE;
+		return;
+	}
 
-		if (json_parser_load_from_data (parser, result->data, -1, NULL)) {
-			JsonArray	*array = json_node_get_array (json_get_node (json_parser_get_root (parser), "content"));
-			GList		*iter, *elements;
-			GSList		*siter;
+	/* For an example of what we expect in the JSON, see:
+	 * https://github.com/SSilence/selfoss/wiki/Restful-API-for-Apps-or-any-other-external-access#wiki-sources_list
+	 */
+
+	parser = json_parser_new ();
+
+	if (!json_parser_load_from_data (parser, result->data, -1, &err)) {
+		g_warning ("selfoss_subscription_cb(): Error parsing JSON: %s\n", err->message);
+		debug0 (DEBUG_UPDATE, result->data);
+		g_clear_error (&err);
+		subscription->node->available = FALSE;
+		goto selfoss_subscription_cb_cleanup;
+	}
+
+	root = json_parser_get_root (parser);
+
+	if (!JSON_NODE_HOLDS_ARRAY (root)) {
+		g_warning ("selfoss_subscription_cb(): Unexpected JSON, not an array\n");
+		debug0 (DEBUG_UPDATE, result->data);
+		subscription->node->available = FALSE;
+		goto selfoss_subscription_cb_cleanup;
+	}
+
+	array = json_node_get_array (root);
+
+	elements = iter = json_array_get_elements (array);
+	/* Add all new nodes we find */
+	while (iter) {
+		JsonNode *node = (JsonNode *)iter->data;
+		const gchar *id, *title, *spout, *url;
 		
-			/* We expect something like this:
-
-			[{
-			    "id":"2",
-			    "title":"devart",
-			    "tags":"da",
-			    "spout":"spouts\\deviantart\\dailydeviations",
-			    "params":[],
-			    "error":"",
-			    "icon":"8f05d7bb1e00caeb7a279037f129e1eb.png"
-			 },{
-			    "id":"1",
-			    "title":"Tobis Blog",
-			    "tags":"blog",
-			    "spout":"spouts\\rss\\feed",
-			    "params":{
-			        "url":"http:\/\/blog.aditu.de\/feed"
-			    },
-			    "error":"",
-			    "icon":"7fe3d2c0fc27994dd267b3961d64226e.png"
-			 },
-			 ...
-			]
-			   
-			   */
+		id = json_get_string (node, "id");
+		title = json_get_string (node, "title");
+		spout = json_get_string (node, "spout");
+		printf("Subscription:\n"
+		       "    id:    %s\n"
+		       "    title: %s\n"
+		       "    spout: %s\n", id, title, spout);
+		
+		if (!strcmp (spout, "spouts\\rss\\feed")) {
+			JsonNode *params = json_get_node (node, "params");
+			const gchar *url = json_get_string (params, "url");
+			printf ("    url:   %s\n", url);
+		}
+		iter = g_list_next (iter);
+	}
+	g_list_free (elements);
 
 #if 0
-			elements = iter = json_array_get_elements (array);
-			/* Add all new nodes we find */
-			while (iter) {
-				JsonNode *node = (JsonNode *)iter->data;
+	/* Remove old nodes we cannot find anymore */
+	siter = source->root->children;
+	while (siter) {
+		nodePtr node = (nodePtr)siter->data;
+		gboolean found = FALSE;
 				
-				/* ignore everything without a feed url */
-				if (json_get_string (node, "feed_url")) {
-					/*
-					selfoss_source_merge_feed (source, 
-					                         json_get_string (node, "feed_url"),
-					                         json_get_string (node, "title"),
-					                         json_get_int (node, "id"));
-					*/
-				}
-				iter = g_list_next (iter);
+		elements = iter = json_array_get_elements (array);
+		while (iter) {
+			JsonNode *json_node = (JsonNode *)iter->data;
+			if (g_str_equal (node->subscription->source, json_get_string (json_node, "feed_url"))) {
+				debug1 (DEBUG_UPDATE, "node: %s", node->subscription->source);
+				found = TRUE;
+				break;
 			}
-			g_list_free (elements);
-
-			/* Remove old nodes we cannot find anymore */
-			siter = source->root->children;
-			while (siter) {
-				nodePtr node = (nodePtr)siter->data;
-				gboolean found = FALSE;
-				
-				elements = iter = json_array_get_elements (array);
-				while (iter) {
-					JsonNode *json_node = (JsonNode *)iter->data;
-					if (g_str_equal (node->subscription->source, json_get_string (json_node, "feed_url"))) {
-						debug1 (DEBUG_UPDATE, "node: %s", node->subscription->source);
-						found = TRUE;
-						break;
-					}
-					iter = g_list_next (iter);
-				}
-				g_list_free (elements);
-
-				if (!found)			
-					feedlist_node_removed (node);
-				
-				siter = g_slist_next (siter);
-			}
-			
-			opml_source_export (subscription->node);	/* save new feeds to feed list */				   
-			subscription->node->available = TRUE;			
-			//return;
-#endif 
-		} else {
-			g_warning ("Invalid JSON returned on Selfoss request! >>>%s<<<", result->data);
+			iter = g_list_next (iter);
 		}
+		g_list_free (elements);
 
-		g_object_unref (parser);
-	} else {
-		subscription->node->available = FALSE;
-		debug0 (DEBUG_UPDATE, "selfoss_subscription_cb(): ERROR: failed to get subscription list!");
+		if (!found)			
+			feedlist_node_removed (node);
+				
+		siter = g_slist_next (siter);
 	}
+			
+	opml_source_export (subscription->node);	/* save new feeds to feed list */				   
+	subscription->node->available = TRUE;			
+	//return;
+#endif 
+
 
 	if (!(flags & SELFOSS_SOURCE_UPDATE_ONLY_LIST))
 		node_foreach_child_data (subscription->node, node_update_subscription, GUINT_TO_POINTER (0));
 
+selfoss_subscription_cb_cleanup:
+	if (parser != NULL)
+		g_object_unref (parser);
 }
 
 static void
@@ -150,9 +156,18 @@ selfoss_subscription_process_update_result (subscriptionPtr subscription, const 
 static gboolean
 selfoss_subscription_prepare_update_request (subscriptionPtr subscription, struct updateRequest *request)
 {
-	debug0 (DEBUG_UPDATE, "ttrs_subscription_prepare_update_request");
+	selfossSourcePtr source = (selfossSourcePtr) subscription->node->data;
+	gchar *uri;
 
-	return FALSE;
+	debug0 (DEBUG_UPDATE, "SELFOSS: Prepare update request.");
+
+	g_return_val_if_fail (source != NULL, FALSE);
+
+	// FIXME: should include authentication
+	uri = g_strdup_printf (SELFOSS_URL_LIST_SOURCES, metadata_list_get (subscription->metadata, "selfoss-url"));
+	update_request_set_source (request, uri);
+	g_free (uri);
+
 	return TRUE;
 }
 

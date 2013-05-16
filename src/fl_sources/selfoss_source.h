@@ -51,7 +51,7 @@ enum  {
  * https://github.com/SSilence/selfoss/wiki/Restful-API-for-Apps-or-any-other-external-access
  */
 
-#define SELFOSS_URL "%s/api/"
+#define SELFOSS_URL_LIST_SOURCES "%s/sources/list"
 
 /**
  * Returns selfoss source type implementation info.
