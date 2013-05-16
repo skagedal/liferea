@@ -20,6 +20,7 @@
 
 #include <glib.h>
 #include <string.h>
+#include <time.h>
 
 #include "common.h"
 #include "db.h"
@@ -30,8 +31,21 @@
 #include "json.h"
 #include "metadata.h"
 #include "subscription.h"
+#include "xml.h"
 
 #include "fl_sources/selfoss_source.h"
+
+/* Parse datetime as given by Selfoss API, like 2013-04-07 13:43:00 */
+
+static time_t
+parse_datetime (const gchar *s)
+{
+	struct tm tm;
+
+	memset (&tm, 0, sizeof(struct tm));
+	strptime ("%Y-%m-%d %H:%M:%S", s, &tm);
+	return mktime (&tm);
+}
 
 static void
 selfoss_feed_subscription_process_update_result (subscriptionPtr subscription, const struct updateResult* const result, updateFlags flags)
@@ -80,6 +94,7 @@ selfoss_feed_subscription_process_update_result (subscriptionPtr subscription, c
 		JsonNode *node = (JsonNode *)iter->data;
 		itemPtr item = item_new ();
 		const gchar *id, *title;
+		gchar *xhtml;
 
 		id = json_get_string (node, "id");
 		title = json_get_string (node, "title");
@@ -88,7 +103,14 @@ selfoss_feed_subscription_process_update_result (subscriptionPtr subscription, c
 		item_set_id (item, json_get_string (node, "id"));
 		item_set_title (item, json_get_string (node, "title"));
 		item_set_source (item, json_get_string (node, "link"));
-		// description, time, readStatus, flagStatus
+
+		xhtml = xhtml_extract_from_string (json_get_string (node, "content"), NULL);
+		item_set_description (item, xhtml);
+		xmlFree (xhtml);
+
+		item->readStatus = (strcmp (json_get_string (node, "unread"), "1") == 0);
+		item->flagStatus = (strcmp (json_get_string (node, "starred"), "1") == 0);
+		item->time = parse_datetime (json_get_string (node, "datetime"));
 		
 		items = g_list_append (items, (gpointer)item);
 
