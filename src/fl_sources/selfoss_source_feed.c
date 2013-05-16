@@ -36,15 +36,108 @@
 static void
 selfoss_feed_subscription_process_update_result (subscriptionPtr subscription, const struct updateResult* const result, updateFlags flags)
 {
+	selfossSourcePtr source = (selfossSourcePtr) subscription->node->data;
+	JsonParser	*parser;
+	JsonNode	*root = NULL;
+	JsonArray	*array;
+	GList		*iter, *elements;
+	GList		*items = NULL;
+	GError		*err = NULL;
+
+	if (result->data == NULL || result->httpstatus != 200) {
+		g_warning ("selfoss_feed_subscription_process_update_result(): Failed to get subscription list\n");
+		subscription->node->available = FALSE;
+		return;
+	}
+
+	/* For an example of what we expect in the JSON, see:
+	 * https://github.com/SSilence/selfoss/wiki/Restful-API-for-Apps-or-any-other-external-access#wiki-items_list_items
+	 */
+
+	parser = json_parser_new ();
+
+	if (!json_parser_load_from_data (parser, result->data, -1, &err)) {
+		g_warning ("selfoss_feed_subscription_process_update_result(): Error parsing JSON: %s\n", err->message);
+		debug0 (DEBUG_UPDATE, result->data);
+		g_clear_error (&err);
+		subscription->node->available = FALSE;
+		goto process_update_result_cleanup;
+	}
+
+	root = json_parser_get_root (parser);
+
+	if (!JSON_NODE_HOLDS_ARRAY (root)) {
+		g_warning ("selfoss_feed_subscription_process_update_result(): Unexpected JSON, not an array\n");
+		debug0 (DEBUG_UPDATE, result->data);
+		subscription->node->available = FALSE;
+		goto process_update_result_cleanup;
+	}
+
+	array = json_node_get_array (root);
+	elements = iter = json_array_get_elements (array);
+
+	while (iter != NULL) {
+		JsonNode *node = (JsonNode *)iter->data;
+		itemPtr item = item_new ();
+		const gchar *id, *title;
+
+		id = json_get_string (node, "id");
+		title = json_get_string (node, "title");
+		printf("Feed item '%s': %s\n", id, title);
+
+		item_set_id (item, json_get_string (node, "id"));
+		item_set_title (item, json_get_string (node, "title"));
+		item_set_source (item, json_get_string (node, "link"));
+		// description, time, readStatus, flagStatus
+		
+		items = g_list_append (items, (gpointer)item);
+
+		iter = g_list_next (iter);
+	}
+	g_list_free (elements);
+
+	/* merge against feed cache */
+
+	/* merge against feed cache */
+	if (items) {
+		itemSetPtr itemSet = node_get_itemset (subscription->node);
+		gint newCount = itemset_merge_items (itemSet, items, TRUE /* feed valid */, FALSE /* markAsRead */);
+		itemlist_merge_itemset (itemSet);
+		itemset_free (itemSet);
+
+		feedlist_node_was_updated (subscription->node, newCount);
+	}
+
+	subscription->node->available = TRUE;
+	
+process_update_result_cleanup:
+	if (parser != NULL)
+		g_object_unref (parser);
 }
 
 static gboolean
 selfoss_feed_subscription_prepare_update_request (subscriptionPtr subscription, 
                                                  struct updateRequest *request)
 {
-	debug0 (DEBUG_UPDATE, "selfoss_feed_subscription_prepare_update_request()");
+	selfossSourcePtr source = (selfossSourcePtr) subscription->node->data;
+	gchar *uri;
+	const gchar *feed_id;
 
-	return FALSE;
+	debug0 (DEBUG_UPDATE, "SELFOSS: prepare_update_request()");
+
+	g_return_val_if_fail (source != NULL, FALSE);
+
+	feed_id = metadata_list_get (subscription->metadata, "selfoss-feed-id");
+
+	uri = selfoss_build_uri (subscription, SELFOSS_ACTION_ITEMS, NULL,
+				 "source", feed_id,
+				 NULL);
+
+	debug1 (DEBUG_UPDATE, "SELFOSS: items URI: %s", uri);
+	update_request_set_source (request, uri);
+
+	g_free (uri);
+
 	return TRUE;
 }
 

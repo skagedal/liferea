@@ -53,12 +53,28 @@ enum  {
 
 #define SELFOSS_URL_LIST_SOURCES "%s/sources/list"
 
+typedef enum {
+	SELFOSS_ACTION_SOURCES,
+	SELFOSS_ACTION_ITEMS
+} selfossAction;
+
+// NOTE: The order of enums above and the list below has to match!
+
+static const gchar *selfoss_uris[] = {
+	"%s/sources/list",
+	"%s/items"
+};
+
 /**
  * Returns selfoss source type implementation info.
  */
 nodeSourceTypePtr selfoss_source_get_type (void);
 
-void selfoss_source_login (selfossSourcePtr source, guint32 flags);
+gchar * selfoss_build_uri (subscriptionPtr subscription, 
+			   selfossAction action,
+			   const gchar *id,
+			   const gchar *first_field,
+			   ...) G_GNUC_NULL_TERMINATED;
 
 extern struct subscriptionType selfossSourceFeedSubscriptionType;
 extern struct subscriptionType selfossSourceSubscriptionType;

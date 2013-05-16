@@ -19,8 +19,6 @@
  */
 
 
-#include "selfoss_source_feed_list.h"
-
 #include <glib.h>
 #include <string.h>
 
@@ -34,6 +32,7 @@
 #include "subscription.h"
 #include "fl_sources/opml_source.h"
 #include "fl_sources/selfoss_source.h"
+#include "fl_sources/selfoss_source_feed_list.h"
 
 static void
 selfoss_source_merge_feed (selfossSourcePtr source, const gchar *url, const gchar *title, const gchar *id)
@@ -59,7 +58,7 @@ selfoss_source_merge_feed (selfossSourcePtr source, const gchar *url, const gcha
 	node->subscription->type = &selfossSourceFeedSubscriptionType;
 	
 	/* Save tt-rss feed id which we need to fetch items... */
-	metadata_list_set (&node->subscription->metadata, "ttrss-feed-id", id);
+	metadata_list_set (&node->subscription->metadata, "selfoss-feed-id", id);
 	
 	node_set_parent (node, source->root, -1);
 	feedlist_node_imported (node);
@@ -208,7 +207,8 @@ selfoss_subscription_prepare_update_request (subscriptionPtr subscription, struc
 	g_return_val_if_fail (source != NULL, FALSE);
 
 	// FIXME: should include authentication
-	uri = g_strdup_printf (SELFOSS_URL_LIST_SOURCES, metadata_list_get (subscription->metadata, "selfoss-url"));
+	uri = selfoss_build_uri (subscription, SELFOSS_ACTION_SOURCES, NULL, NULL, NULL);
+//	uri = g_strdup_printf (SELFOSS_URL_LIST_SOURCES, metadata_list_get (subscription->metadata, "selfoss-url"));
 	update_request_set_source (request, uri);
 	g_free (uri);
 

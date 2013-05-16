@@ -18,10 +18,9 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include "fl_sources/selfoss_source.h"
-
 #include <glib.h>
 #include <gtk/gtk.h>
+#include <libsoup/soup.h>
 #include <string.h>
 #include <stdarg.h>
 
@@ -37,8 +36,79 @@
 #include "ui/liferea_dialog.h"
 #include "fl_sources/node_source.h"
 #include "fl_sources/opml_source.h"
+#include "fl_sources/selfoss_source.h"
 
-// FIXME: Avoid doing requests when we are not logged in yet!
+static gchar *
+selfoss_build_uri_valist (subscriptionPtr subscription, 
+			  selfossAction action,
+			  const gchar *id,
+			  const gchar *first_field,
+			  va_list args)
+{
+	const gchar *site_uri, *name, *value;
+	gchar *base_uri, *ret;
+	SoupURI *soup_uri;
+	GHashTable *params;
+	nodePtr root;
+
+	root = node_source_root_from_node (subscription->node);
+
+	site_uri = metadata_list_get (root->subscription->metadata, "selfoss-url");
+	if (site_uri == NULL) {
+		debug0 (DEBUG_UPDATE, "SELFOSS: Subscription URL was NULL");
+		return NULL;
+	}
+	debug1 (DEBUG_UPDATE, "SELFOSS: site uri: %s", site_uri);
+
+	if (id != NULL)
+		base_uri = g_strdup_printf (selfoss_uris[action], site_uri, id);
+	else
+		base_uri = g_strdup_printf (selfoss_uris[action], site_uri);
+
+	soup_uri = soup_uri_new (base_uri);
+
+	params = g_hash_table_new (g_str_hash, g_str_equal);
+
+	/* FIXME: Insert authentication query fields in hash table */
+
+	/* Insert all user supplied query fields in hash table */
+	name = first_field;
+	value = va_arg (args, const gchar *);
+	while (name != NULL && value != NULL) {
+		g_hash_table_insert (params, (gpointer)name, (gpointer)value);
+
+		name = va_arg (args, const gchar *);
+		if (name != NULL)
+			value = va_arg (args, const gchar *);
+	}
+
+	soup_uri_set_query_from_form (soup_uri, params);
+	ret = soup_uri_to_string (soup_uri, FALSE);
+
+	g_hash_table_unref (params);
+	soup_uri_free (soup_uri);
+	g_free (base_uri);
+	return ret;
+}
+
+gchar *
+selfoss_build_uri (subscriptionPtr subscription, 
+		   selfossAction action,
+		   const gchar *id,
+		   const gchar *first_field,
+		   ...)
+{
+	gchar *ret = NULL;
+	va_list args;
+
+	g_return_if_fail (subscription != NULL);
+
+	va_start (args, first_field);
+	ret = selfoss_build_uri_valist (subscription, action, id, first_field, args);
+	va_end (args); 
+
+	return ret;
+}
 
 /** create a tt-rss source with given node as root */ 
 static selfossSourcePtr

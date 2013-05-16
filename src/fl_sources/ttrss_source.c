@@ -210,7 +210,7 @@ ttrss_source_auto_update (nodePtr node)
 	if (source->loginState == TTRSS_SOURCE_STATE_IN_PROGRESS) 
 		return; /* the update will start automatically anyway */
 
-	debug0 (DEBUG_UPDATE, "ttrss_source_auto_update()");
+	//debug0 (DEBUG_UPDATE, "ttrss_source_auto_update()");
 	subscription_auto_update (node->subscription);
 }
 
