@@ -35,6 +35,48 @@
 #include "fl_sources/opml_source.h"
 #include "fl_sources/selfoss_source.h"
 
+static void
+selfoss_source_merge_feed (selfossSourcePtr source, const gchar *url, const gchar *title, const gchar *id)
+{
+	GSList	*iter;
+	nodePtr	node;
+
+	/* check if node to be merged already exists */
+	iter = source->root->children;
+	while (iter) {
+		node = (nodePtr)iter->data;
+		if (g_str_equal (node->subscription->source, url))
+			return;
+		iter = g_slist_next (iter);
+	}
+	
+	debug2 (DEBUG_UPDATE, "SELFOSS: Adding %s (%s)", title, url);
+	node = node_new (feed_get_node_type ());
+	node_set_title (node, title);
+	node_set_data (node, feed_new ());
+		
+	node_set_subscription (node, subscription_new (url, NULL, NULL));
+	node->subscription->type = &selfossSourceFeedSubscriptionType;
+	
+	/* Save tt-rss feed id which we need to fetch items... */
+	metadata_list_set (&node->subscription->metadata, "ttrss-feed-id", id);
+	
+	node_set_parent (node, source->root, -1);
+	feedlist_node_imported (node);
+		
+	/**
+	 * @todo mark the ones as read immediately after this is done
+	 * the feed as retrieved by this has the read and unread
+	 * status inherently.
+	 */
+	subscription_update (node->subscription, FEED_REQ_RESET_TITLE | FEED_REQ_PRIORITY_HIGH);
+	subscription_update_favicon (node->subscription);
+	
+	/* Important: we must not loose the feed id! */
+	db_subscription_update (node->subscription);
+	
+}
+
 /* source subscription type implementation */
 
 static void
@@ -98,10 +140,12 @@ selfoss_subscription_cb (subscriptionPtr subscription, const struct updateResult
 		       "    title: %s\n"
 		       "    spout: %s\n", id, title, spout);
 		
-		if (!strcmp (spout, "spouts\\rss\\feed")) {
+		if (strcmp (spout, "spouts\\rss\\feed") == 0) {
 			JsonNode *params = json_get_node (node, "params");
 			const gchar *url = json_get_string (params, "url");
 			printf ("    url:   %s\n", url);
+
+			selfoss_source_merge_feed (source, url, title, id);
 		}
 		iter = g_list_next (iter);
 	}
